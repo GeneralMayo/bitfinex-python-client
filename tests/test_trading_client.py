@@ -1,6 +1,6 @@
 import unittest
 
-import bitstamp.client
+import bitfinex.client
 import mock
 import requests
 import hmac
@@ -15,20 +15,20 @@ class TradingTests(unittest.TestCase):
         self.username = 'USERNAME'
         self.key = 'KEY'
         self.secret = 'SECRET'
-        self.client = bitstamp.client.Trading(
+        self.client = bitfinex.client.Trading(
             self.username, self.key, self.secret)
 
     def test_bad_response(self):
         response = FakeResponse(b'''{"error": "something went wrong"}''')
         with mock.patch('requests.post', return_value=response):
             self.assertRaises(
-                bitstamp.client.BitstampError, self.client.account_balance)
+                bitfinex.client.BitfinexError, self.client.account_balance)
 
     def test_nonjson_response(self):
         response = FakeResponse(b'''Hey wait, this isn't JSON!''')
         with mock.patch('requests.post', return_value=response):
             self.assertRaises(
-                bitstamp.client.BitstampError, self.client.account_balance)
+                bitfinex.client.BitfinexError, self.client.account_balance)
 
     def test_404_response(self):
         response = FakeResponse(status_code=404)

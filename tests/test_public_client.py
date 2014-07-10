@@ -1,7 +1,7 @@
 import unittest
 import warnings
 
-import bitstamp.client
+import bitfinex.client
 import mock
 import requests
 
@@ -11,13 +11,13 @@ from .fake_response import FakeResponse
 class PublicTests(unittest.TestCase):
 
     def setUp(self):
-        self.client = bitstamp.client.Public()
+        self.client = bitfinex.client.Public()
 
     def test_bad_response(self):
         response = FakeResponse(b'''{"error": "something went wrong"}''')
         with mock.patch('requests.get', return_value=response):
             self.assertRaises(
-                bitstamp.client.BitstampError, self.client.ticker)
+                bitfinex.client.BitfinexError, self.client.ticker)
 
     def test_404_response(self):
         response = FakeResponse(status_code=404)
@@ -72,12 +72,12 @@ class BackwardsCompatPublicTests(unittest.TestCase):
     def setUp(self):
         with warnings.catch_warnings():
             warnings.simplefilter('ignore')
-            self.client = bitstamp.client.public()
+            self.client = bitfinex.client.public()
 
     def test_deprecation_warning(self):
         with warnings.catch_warnings():
             warnings.simplefilter("error")
-            self.assertRaises(DeprecationWarning, bitstamp.client.public)
+            self.assertRaises(DeprecationWarning, bitfinex.client.public)
 
     def test_bad_response(self):
         response = FakeResponse(b'''{"error": "something went wrong"}''')

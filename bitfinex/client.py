@@ -7,7 +7,7 @@ import warnings
 import requests
 
 
-class BitstampError(Exception):
+class BitfinexError(Exception):
     pass
 
 
@@ -25,7 +25,7 @@ class BaseClient(object):
     A base class for the API Client methods that handles interaction with
     the requests library.
     """
-    api_url = 'https://www.bitstamp.net/api/'
+    api_url = 'https://www.bitfinex.net/api/'
     exception_on_error = True
 
     def __init__(self, proxydict=None, *args, **kwargs):
@@ -57,7 +57,7 @@ class BaseClient(object):
         Make a generic request, adding in any proxy defined by the instance.
 
         Raises a ``requests.HTTPError`` if the response status isn't 200, and
-        raises a :class:`BitstampError` if the response contains a json encoded
+        raises a :class:`BitfinexError` if the response contains a json encoded
         error message.
         """
         return_json = kwargs.pop('return_json', False)
@@ -77,11 +77,11 @@ class BaseClient(object):
         if isinstance(json_response, dict):
             error = json_response.get('error')
             if error:
-                raise BitstampError(error)
+                raise BitfinexError(error)
 
         if return_json:
             if json_response is None:
-                raise BitstampError(
+                raise BitfinexError(
                     "Could not decode json for: " + response.text)
             return json_response
 
@@ -128,7 +128,7 @@ class Trading(Public):
     def __init__(self, username, key, secret, *args, **kwargs):
         """
         Stores the username, key, and secret which is used when making POST
-        requests to Bitstamp.
+        requests to Bitfinex.
         """
         super(Trading, self).__init__(
             username=username, key=key, secret=secret, *args, **kwargs)
@@ -138,7 +138,7 @@ class Trading(Public):
 
     def get_nonce(self):
         """
-        Get a unique nonce for the bitstamp API.
+        Get a unique nonce for the bitfinex API.
 
         This integer must always be increasing, so use the current unix time.
         Every time this variable is requested, it automatically increments to
@@ -159,7 +159,7 @@ class Trading(Public):
     def _default_data(self, *args, **kwargs):
         """
         Generate a one-time signature and other data required to send a secure
-        POST request to the Bitstamp API.
+        POST request to the Bitfinex API.
         """
         data = super(Trading, self)._default_data(*args, **kwargs)
         data['key'] = self.key
@@ -175,12 +175,12 @@ class Trading(Public):
 
     def _expect_true(self, response):
         """
-        A shortcut that raises a :class:`BitstampError` if the response didn't
+        A shortcut that raises a :class:`BitfinexError` if the response didn't
         just contain the text 'true'.
         """
         if response.text == u'true':
             return True
-        raise BitstampError("Unexpected response")
+        raise BitfinexError("Unexpected response")
 
     def account_balance(self):
         """
@@ -226,7 +226,7 @@ class Trading(Public):
         Cancel the order specified by order_id.
 
         Returns True if order was successfully canceled,otherwise raise a
-        BitstampError.
+        BitfinexError.
         """
         data = {'id': order_id}
         return self._post("cancel_order/", data=data, return_json=True)
@@ -246,15 +246,15 @@ class Trading(Public):
         data = {'amount': amount, 'price': price}
         return self._post("sell/", data=data, return_json=True)
 
-    def check_bitstamp_code(self, code):
+    def check_bitfinex_code(self, code):
         """
         Returns JSON dictionary containing USD and BTC amount included in given
-        bitstamp code.
+        bitfinex code.
         """
         data = {'code': code}
         return self._post("check_code/", data=data, return_json=True)
 
-    def redeem_bitstamp_code(self, code):
+    def redeem_bitfinex_code(self, code):
         """
         Returns JSON dictionary containing USD and BTC amount added to user's
         account.
@@ -317,7 +317,7 @@ class Trading(Public):
 class BackwardsCompat(object):
     """
     Version 1 used lower case class names that didn't raise an exception when
-    Bitstamp returned a response indicating an error had occured.
+    Bitfinex returned a response indicating an error had occured.
 
     Instead, it returned a tuple containing ``(False, 'The error message')``.
     """
@@ -346,11 +346,11 @@ class BackwardsCompat(object):
         @wraps(attr)
         def wrapped_callable(*args, **kwargs):
             """
-            Catch ``BitstampError`` and replace with the tuple error pair.
+            Catch ``BitfinexError`` and replace with the tuple error pair.
             """
             try:
                 return attr(*args, **kwargs)
-            except BitstampError as e:
+            except BitfinexError as e:
                 return False, e.args[0]
 
         return wrapped_callable

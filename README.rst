@@ -1,8 +1,8 @@
 ======================
-bitstamp-python-client
+bitfinex-python-client
 ======================
 
-Python package to communicate with the bitstamp.net API.
+Python package to communicate with the bitfinex.net API.
 
 Compatible with Python 2.7+ and Python 3.3+
 
@@ -14,21 +14,19 @@ There are two classes. One for the public part of API and a second for the
 trading part.
 
 Public class doesn't need user credentials, because API commands which this
-class implements are not bound to bitstamp user account.
+class implements are not bound to bitfinex user account.
 
-Description of API: https://www.bitstamp.net/api/
+Description of API: https://www.bitfinex.com/pages/api
 
 
 Install
 =======
 
-Install from PyPi::
-
-    pip install BitstampClient
+I don't know how to do this well. I'm guessing this:
 
 Install from git::
 
-    pip install git+git://github.com/kmadac/bitstamp-python-client.git
+    pip install git+git://github.com/streblo/bitfinex-python-client.git
 
 
 Usage
@@ -36,13 +34,13 @@ Usage
 
 Here's a quick example of usage::
 
-    >>> import bitstamp.client
+    >>> import bitfinex.client
 
-    >>> public_client = bitstamp.client.Public()
+    >>> public_client = bitfinex.client.Public()
     >>> print(public_client.ticker()['volume'])
     8700.01208078
 
-    >>> trading_client = bitstamp.client.Trading(
+    >>> trading_client = bitfinex.client.Trading(
     ...     username='999999', key='xxx', secret='xxx')
     >>> print(trading_client.account_balance()['fee'])
     0.5000
@@ -54,23 +52,11 @@ Here's a quick example of usage::
 How to activate a new API key
 =============================
 
-1. Login your Bitstamp account
-
-2. Click on Security -> Api Access
-
-3. Select permissions which you want to have for you access key (if you don't
-   check any box, you will get error message 'No permission found' after each
-   API call)
-
-4. Click the 'Generate key' button and don't forget to write down your Secret!
-
-5. Click 'Activate'
-
-6. Goto your Inbox and click on link sent by Bitstamp to activate this API key
+Get the API key from the website, most likely
 
 
 Class diagram
 =============
-.. image:: https://raw.github.com/kmadac/bitstamp-python-client/master/class_diagram.png
+.. image:: https://raw.github.com/streblo/bitfinex-python-client/master/class_diagram.png
    :alt: Class diagram
    :align: center
