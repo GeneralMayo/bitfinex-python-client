@@ -1,23 +1,13 @@
-from functools import wraps
+import json
 import hmac
 import hashlib
 import time
-import warnings
-
 import requests
+import base64
 
 
 class BitfinexError(Exception):
     pass
-
-
-class TransRange(object):
-    """
-    Enum like object used in transaction method to specify time range
-    from which to get list of transactions
-    """
-    HOUR = 'hour'
-    MINUTE = 'minute'
 
 
 class BaseClient(object):
@@ -25,7 +15,8 @@ class BaseClient(object):
     A base class for the API Client methods that handles interaction with
     the requests library.
     """
-    api_url = 'https://www.bitfinex.net/api/'
+    #api_url = 'https://bf1.apiary-mock.com/'
+    api_url = 'https://api.bitfinex.com/'
     exception_on_error = True
 
     def __init__(self, proxydict=None, *args, **kwargs):
@@ -66,6 +57,10 @@ class BaseClient(object):
 
         if 'proxies' not in kwargs:
             kwargs['proxies'] = self.proxydict
+            
+        #print 'Response Code: ' + str(response.status_code) 
+        #print 'Response Header: ' + str(response.headers)
+        #print 'Response Content: '+ str(response.content)
 
         # Check for error, raising an exception if appropriate.
         response.raise_for_status()
@@ -92,47 +87,30 @@ class Public(BaseClient):
 
     def ticker(self):
         """
-        Returns dictionary.
+        Returns dictionary. 
+        
+        mid (price): (bid + ask) / 2
+        bid (price): Innermost bid.
+        ask (price): Innermost ask.
+        last_price (price) The price at which the last order executed.
+        low (price): Lowest trade price of the last 24 hours
+        high (price): Highest trade price of the last 24 hours
+        volume (price): Trading volume of the last 24 hours
+        timestamp (time) The timestamp at which this information was valid.
+        
         """
-        return self._get("ticker/", return_json=True)
-
-    def order_book(self, group=True):
-        """
-        Returns dictionary with "bids" and "asks".
-
-        Each is a list of open orders and each order is represented as a list
-        of price and amount.
-        """
-        params = {'group': group}
-        return self._get("order_book/", params=params, return_json=True)
-
-    def transactions(self, time=TransRange.HOUR):
-        """
-        Returns transactions for the last 'timedelta' seconds.
-        Paramater time is specified by one of two values of TransRange class.
-        """
-        params = {'time': time}
-        return self._get("transactions/", params=params, return_json=True)
-
-    def conversion_rate_usd_eur(self):
-        """
-        Returns simple dictionary::
-
-            {'buy': 'buy conversion rate', 'sell': 'sell conversion rate'}
-        """
-        return self._get("eur_usd/", return_json=True)
+        return self._get("v1/pubticker/btcusd", return_json=True)
 
 
 class Trading(Public):
 
-    def __init__(self, username, key, secret, *args, **kwargs):
+    def __init__(self, key, secret, *args, **kwargs):
         """
         Stores the username, key, and secret which is used when making POST
         requests to Bitfinex.
         """
         super(Trading, self).__init__(
-            username=username, key=key, secret=secret, *args, **kwargs)
-        self.username = username
+                 key=key, secret=secret, *args, **kwargs)
         self.key = key
         self.secret = secret
 
@@ -161,40 +139,48 @@ class Trading(Public):
         Generate a one-time signature and other data required to send a secure
         POST request to the Bitfinex API.
         """
-        data = super(Trading, self)._default_data(*args, **kwargs)
-        data['key'] = self.key
+        data = {}
         nonce = self.get_nonce()
-        msg = str(nonce) + self.username + self.key
-
-        signature = hmac.new(
-            self.secret.encode('utf-8'), msg=msg.encode('utf-8'),
-            digestmod=hashlib.sha256).hexdigest().upper()
-        data['signature'] = signature
-        data['nonce'] = nonce
+        data['nonce'] = str(nonce)
+        data['request'] = args[0]
         return data
 
-    def _expect_true(self, response):
+    def _post(self, *args, **kwargs):
         """
-        A shortcut that raises a :class:`BitfinexError` if the response didn't
-        just contain the text 'true'.
+        Make a POST request.
         """
-        if response.text == u'true':
-            return True
-        raise BitfinexError("Unexpected response")
+        data = kwargs.pop('data', {})
+        data.update(self._default_data(*args, **kwargs))
+        
+        key = self.key
+        secret = self.secret
+        payload_json = json.dumps(data)
+        payload = base64.b64encode(payload_json)
+        sig = hmac.new(secret, payload, hashlib.sha384)
+        sig = sig.hexdigest()
 
-    def account_balance(self):
+        headers = {
+           'X-BFX-APIKEY' : key,
+           'X-BFX-PAYLOAD' : payload,
+           'X-BFX-SIGNATURE' : sig
+           }
+        kwargs['headers'] = headers
+        
+        #print("headers: " + json.dumps(headers))
+        #print("sig: " + sig)
+        #print("api_secret: " + secret)
+        #print("api_key: " + key)
+        #print("payload_json: " + payload_json)
+        return self._request(requests.post, *args, **kwargs)
+
+    def account_infos(self):
         """
         Returns dictionary::
-
-            {u'btc_reserved': u'0',
-             u'fee': u'0.5000',
-             u'btc_available': u'2.30856098',
-             u'usd_reserved': u'0',
-             u'btc_balance': u'2.30856098',
-             u'usd_balance': u'114.64',
-             u'usd_available': u'114.64'}
+        [{"fees":[{"pairs":"BTC","maker_fees":"0.1","taker_fees":"0.2"},
+        {"pairs":"LTC","maker_fees":"0.0","taker_fees":"0.1"},
+        {"pairs":"DRK","maker_fees":"0.0","taker_fees":"0.1"}]}]
         """
-        return self._post("balance/", return_json=True)
+        return self._post("/v1/account_infos", return_json=True)
 
     def user_transactions(self, offset=0, limit=100, descending=True):
         """
@@ -221,150 +207,7 @@ class Trading(Public):
         """
         return self._post("open_orders/", return_json=True)
 
-    def cancel_order(self, order_id):
-        """
-        Cancel the order specified by order_id.
-
-        Returns True if order was successfully canceled,otherwise raise a
-        BitfinexError.
-        """
-        data = {'id': order_id}
-        return self._post("cancel_order/", data=data, return_json=True)
-
-    def buy_limit_order(self, amount, price):
-        """
-        Order to buy amount of bitcoins for specified price.
-        """
-        data = {'amount': amount, 'price': price}
-
-        return self._post("buy/", data=data, return_json=True)
-
-    def sell_limit_order(self, amount, price):
-        """
-        Order to buy amount of bitcoins for specified price.
-        """
-        data = {'amount': amount, 'price': price}
-        return self._post("sell/", data=data, return_json=True)
-
-    def check_bitfinex_code(self, code):
-        """
-        Returns JSON dictionary containing USD and BTC amount included in given
-        bitfinex code.
-        """
-        data = {'code': code}
-        return self._post("check_code/", data=data, return_json=True)
-
-    def redeem_bitfinex_code(self, code):
-        """
-        Returns JSON dictionary containing USD and BTC amount added to user's
-        account.
-        """
-        data = {'code': code}
-        return self._post("redeem_code/", data=data, return_json=True)
-
-    def withdrawal_requests(self):
-        """
-        Returns list of withdrawal requests.
-
-        Each request is represented as a dictionary.
-        """
-        return self._post("withdrawal_requests/", return_json=True)
-
-    def bitcoin_withdrawal(self, amount, address):
-        """
-        Send bitcoins to another bitcoin wallet specified by address.
-        """
-        data = {'amount': amount, 'address': address}
-        return self._post("bitcoin_withdrawal/", data=data, return_json=True)
-
-    def bitcoin_deposit_address(self):
-        """
-        Returns bitcoin deposit address as unicode string
-        """
-        return self._post("bitcoin_deposit_address/", return_json=True)
-
-    def unconfirmed_bitcoin_deposits(self):
-        """
-        Returns JSON list of unconfirmed bitcoin transactions.
-
-        Each transaction is represented as dictionary:
-
-        amount
-          bitcoin amount
-        address
-          deposit address used
-        confirmations
-          number of confirmations
-        """
-        return self._post("unconfirmed_btc/", return_json=True)
-
-    def ripple_withdrawal(self, amount, address, currency):
-        """
-        Returns true if successful.
-        """
-        data = {'amount': amount, 'address': address, 'currency': currency}
-        response = requests.post("ripple_withdrawal/", data=data)
-        return self._expect_true(response)
-
-    def ripple_deposit_address(self):
-        """
-        Returns ripple deposit address as unicode string.
-        """
-        return requests.post("ripple_address/").text
 
 
-# Backwards compatibility
-class BackwardsCompat(object):
-    """
-    Version 1 used lower case class names that didn't raise an exception when
-    Bitfinex returned a response indicating an error had occured.
-
-    Instead, it returned a tuple containing ``(False, 'The error message')``.
-    """
-    wrapped_class = None
-
-    def __init__(self, *args, **kwargs):
-        """
-        Instanciate the wrapped class.
-        """
-        self.wrapped = self.wrapped_class(*args, **kwargs)
-        class_name = self.__class__.__name__
-        warnings.warn(
-            "Use the {} class rather than the deprecated {} one".format(
-                class_name.title(), class_name),
-            DeprecationWarning, stacklevel=2)
-
-    def __getattr__(self, name):
-        """
-        Return the wrapped attribute. If it's a callable then return the error
-        tuple when appropriate.
-        """
-        attr = getattr(self.wrapped, name)
-        if not callable(attr):
-            return attr
-
-        @wraps(attr)
-        def wrapped_callable(*args, **kwargs):
-            """
-            Catch ``BitfinexError`` and replace with the tuple error pair.
-            """
-            try:
-                return attr(*args, **kwargs)
-            except BitfinexError as e:
-                return False, e.args[0]
-
-        return wrapped_callable
 
 
-class public(BackwardsCompat):
-    """
-    Deprecated version 1 client. Use :class:`Public` instead.
-    """
-    wrapped_class = Public
-
-
-class trading(BackwardsCompat):
-    """
-    Deprecated version 1 client. Use :class:`Trading` instead.
-    """
-    wrapped_class = Trading

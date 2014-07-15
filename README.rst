@@ -53,10 +53,3 @@ How to activate a new API key
 =============================
 
 Get the API key from the website, most likely
-
-
-Class diagram
-=============
-.. image:: https://raw.github.com/streblo/bitfinex-python-client/master/class_diagram.png
-   :alt: Class diagram
-   :align: center
