@@ -52,4 +52,4 @@ Here's a quick example of usage::
 How to activate a new API key
 =============================
 
-Get the API key from the website, most likely
+Get the API key from the website: https://www.bitfinex.com/account/api
