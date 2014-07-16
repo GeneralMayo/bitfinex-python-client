@@ -22,8 +22,6 @@ Description of API: https://www.bitfinex.com/pages/api
 Install
 =======
 
-I don't know how to do this well. I'm guessing this:
-
 Install from git::
 
     pip install git+git://github.com/streblo/bitfinex-python-client.git
@@ -37,15 +35,13 @@ Here's a quick example of usage::
     >>> import bitfinex.client
 
     >>> public_client = bitfinex.client.Public()
-    >>> print(public_client.ticker()['volume'])
-    8700.01208078
+    >>> print(public_client.ticker()['last_trade'])
+    620.23
 
-    >>> trading_client = bitfinex.client.Trading(
-    ...     username='999999', key='xxx', secret='xxx')
-    >>> print(trading_client.account_balance()['fee'])
-    0.5000
-    >>> print(trading_client.ticker()['volume'])   # Can access public methods
-    8700.01208078
+    >>> trading_client = bitfinex.client.Trading(key='xxx', secret='xxx')
+    >>> print(trading_client.new_order(amount=10.0, price=610.00))
+    <order_id>
+
 
 
 
