@@ -100,6 +100,11 @@ class Public(BaseClient):
         
         """
         return self._get("v1/pubticker/btcusd", return_json=True)
+    
+    def get_last(self):
+        """shortcut for last trade"""
+        return float(self.ticker()['last_price'])
+        
 
 
 class Trading(Public):
@@ -114,7 +119,7 @@ class Trading(Public):
         self.key = key
         self.secret = secret
 
-    def get_nonce(self):
+    def _get_nonce(self):
         """
         Get a unique nonce for the bitfinex API.
 
@@ -140,7 +145,7 @@ class Trading(Public):
         POST request to the Bitfinex API.
         """
         data = {}
-        nonce = self.get_nonce()
+        nonce = self._get_nonce()
         data['nonce'] = str(nonce)
         data['request'] = args[0]
         return data
@@ -181,33 +186,73 @@ class Trading(Public):
         {"pairs":"DRK","maker_fees":"0.0","taker_fees":"0.1"}]}]
         """
         return self._post("/v1/account_infos", return_json=True)
-
-    def user_transactions(self, offset=0, limit=100, descending=True):
+    
+    def balances(self):
         """
-        Returns descending list of transactions. Every transaction (dictionary)
-        contains::
-
-            {u'usd': u'-39.25',
-             u'datetime': u'2013-03-26 18:49:13',
-             u'fee': u'0.20', u'btc': u'0.50000000',
-             u'type': 2,
-             u'id': 213642}
+        returns a list of balances
+        A list of wallet balances:
+        type (string): "trading", "deposit" or "exchange".
+        currency (string): Currency 
+        amount (decimal): How much balance of this currency in this wallet
+        available (decimal): How much X there is in this wallet that 
+        is available to trade.
         """
-        data = {
-            'offset': offset,
-            'limit': limit,
-            'sort': 'desc' if descending else 'asc',
-        }
-        return self._post("user_transactions/", data=data, return_json=True)
-
-    def open_orders(self):
+        return self._post("/v1/balances",return_json=True)
+    
+    def new_order(self, amount=0.01, price=1.11, side='buy',
+                  order_type='limit', symbol='btcusd'):
         """
-        Returns JSON list of open orders. Each order is represented as a
-        dictionary.
+        enters a new order onto the orderbook
+        
+        symbol (string): The name of the symbol (see `/symbols`).
+        amount (decimal): Order size: how much to buy or sell.
+        price (price): Price to buy or sell at. May omit if a market order.
+        exchange (string): "bitfinex".
+        side (string): Either "buy" or "sell".
+        type (string): Either "market" / "limit" / "stop" / "trailing-stop" / "fill-or-kill" / "exchange market" / "exchange limit" / "exchange stop" / "exchange trailing-stop" / "exchange fill-or-kill". (type starting by "exchange " are exchange orders, others are margin trading orders) 
+        is_hidden (bool) true if the order should be hidden. Default is false.
+        Response
+        
+        order_id (int): A randomly generated ID for the order.
+        and the information given by /order/status"""
+        data = {'symbol': str(symbol),
+                'amount': str(amount),
+                'price': str(price),
+                'exchange': 'bitfinex',
+                'side':str(side),
+                'type':order_type
+                }
+        return self._post("/v1/order/new", data=data, return_json=True)
+
+    def orders(self):
         """
-        return self._post("open_orders/", return_json=True)
+        Returns an array of the results of `/order/status` for all
+        your live orders.
+        """
+        return self._post("/v1/orders", return_json=True)
 
-
+    def cancel_order(self, order_id):
+        """
+        cancels order with order_id
+        """
+        data = {'order_id': str(order_id)}
+        return self._post("/v1/order/cancel",data, return_json=True)
+    
+    def cancel_all_orders(self):
+        """
+        cancels all orders
+        """
+        req = self._post('/v1/order/cancel/all', return_json=False)
+        if req.content == "All orders cancelled":
+            return True
+        else:
+            return False
+        
+    def positions(self):
+        """
+        gets positions
+        """
+        return self._post("/v1/positions", return_json=True)
 
 
 
